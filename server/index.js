@@ -27,25 +27,54 @@ app.use(
 io.on("connection", (socket) => {
     console.log(`${socket.id} connected`);
 
+    socket.on("set-username", (username) => {
+        socket.username = username;
+        console.log(`Username set to  : ${username} for socketID -> ${socket.id}`);
+    });
+
     socket.on("create-room", (room) => {
         socket.join(room);
-        console.log(`Room - ${room} created by ${socket.id}`);
+        console.log(
+            `Room - ${room} created by ${socket.username ? socket.username : socket.id}`,
+        );
+
+        io.in(room)
+            .allSockets()
+            .then((sockets) => {
+                const members = Array.from(sockets).map((socketId) => {
+                    const memberSocket = io.sockets.sockets.get(socketId);
+                    return memberSocket.username ? memberSocket.username : socketId;
+                });
+                console.log(`Members in room ${room}:`, members);
+                io.to(room).emit("room-members", members);
+            });
+
         io.emit("room-created", { room: room, id: socket.id });
     });
 
     socket.on("join-room", (room) => {
         socket.join(room);
-        console.log(`User ${socket.id} joined room - ${room}`);
+        console.log(
+            `User ${socket.username ? socket.username : socket.id} joined room - ${room}`,
+        );
         io.emit("room-joined", { room: room, id: socket.id });
 
-        socket.to(room).emit("user-joined", `${socket.id} has joined the room`);
+        socket
+            .to(room)
+            .emit(
+                "user-joined",
+                `${socket.username ? socket.username : socket.id} has joined the room`,
+            );
 
         io.in(room)
             .allSockets()
             .then((sockets) => {
-                const socketIds = Array.from(sockets);
-                console.log(`Sockets in room ${room}:`, socketIds);
-                io.to(room).emit("room-members", socketIds);
+                const members = Array.from(sockets).map((socketId) => {
+                    const memberSocket = io.sockets.sockets.get(socketId);
+                    return memberSocket.username ? memberSocket.username : socketId;
+                });
+                console.log(`Members in room ${room}:`, members);
+                io.to(room).emit("room-members", members);
             });
     });
 
